@@ -3,6 +3,7 @@
 ROS2 Jazzy 기반 Lane Following 시뮬레이션 패키지
 
 ---
+## 실행 영상 : https://youtu.be/MpEH6Ui8fJE
 
 ## 패키지 구조
 ```
