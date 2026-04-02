@@ -74,22 +74,6 @@ range_max       :  16.0 m
 
 ---
 
-## 4. 코드로 확인하는 방법
-```cpp
-static void scanCb(sensor_msgs::msg::LaserScan::SharedPtr scan)
-{
-    // 측정 포인트 수 출력
-    int count = static_cast<int>(scan->scan_time / scan->time_increment);
-    printf("count          = %d\n", count);
-
-    // angle_min, angle_increment 출력
-    printf("angle_min      = %f rad\n", scan->angle_min);
-    printf("angle_increment= %f rad\n", scan->angle_increment);
-
-    // 메시지 크기 출력
-    printf("ranges size    = %zu\n", scan->ranges.size());
-}
-```
 
 ---
 
