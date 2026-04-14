@@ -25,8 +25,6 @@
 #define LEFT_OFFSET  0
 // 우측 바퀴 보정값
 #define RIGHT_OFFSET 0
-// 근거리 블라인드존 (50cm = 125픽셀)
-#define BLIND_ZONE  125
 // 최소 장애물 픽셀 수 (노이즈 제거)
 #define MIN_PIXELS  5
 
@@ -166,9 +164,6 @@ private:
                     cv::Scalar(50, 50, 255),
                     mask);
 
-        // 전방 영역 (근거리 블라인드존 제외)
-        int front_height = CY - BLIND_ZONE;
-        if (front_height <= 0) front_height = 10;
 
         cv::Mat front_mask = mask(cv::Rect(0, 0, IMG_SIZE, front_height));
 
