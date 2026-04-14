@@ -252,10 +252,7 @@ private:
         // 좌우 장애물이 실제로 다른 벽인지 확인
         // x 차이 > 100px  : 서로 다른 위치
         // 거리 차이 < 3배 : 비슷한 거리여야 다른 벽
-        bool both_valid = left_found && right_found &&
-                          (right_min_x - left_min_x) > 100 &&
-                          left_min_dist  < right_min_dist * 3 &&
-                          right_min_dist < left_min_dist  * 3;
+        bool both_valid = left_found && right_found;
 
         if (both_valid) {
             // 양쪽 장애물 → 중앙점 방향 각도 계산
@@ -269,7 +266,7 @@ private:
         }
 
         // 스무딩 (이전값 90% + 현재값 10%)
-        float error = prev_error_ * 0.9f + raw_error * 0.1f;
+        float error = prev_error_ * 0.7f + raw_error * 0.3f;
         prev_error_ = error;
 
         // ── P제어 속도 계산 ───────────────────────────────
