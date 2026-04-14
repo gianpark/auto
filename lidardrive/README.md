@@ -77,8 +77,6 @@ graph LR
        ↓
 ⑤ 가상 장애물 배치   한쪽만 있을 때 → 없는 쪽 끝에 가상 장애물 배치
        ↓
-⑥ 유효성 검사        x차 > 100px  AND  거리차 < 3배 → 서로 다른 벽 판단
-       ↓
 ⑦ error 계산         atan2(mid_x - CX, CY - 125) × 180/π  (단위: degree)
        ↓
 ⑧ 스무딩             error = prev × 0.9 + raw × 0.1
@@ -278,26 +276,10 @@ if (!left_found && right_found) {
 }
 ```
 
-### 유효성 검사 — 같은 벽 오인식 방지
-
-```cpp
-bool both_valid = left_found && right_found &&
-                  (right_min_x - left_min_x) > 100 &&
-                  left_min_dist  < right_min_dist * 3 &&
-                  right_min_dist < left_min_dist  * 3;
-```
 
 ### Error 계산 및 스무딩
 
 ```cpp
-if (both_valid) {
-    int mid_x = (left_min_x + right_min_x) / 2;
-    float dx  = static_cast<float>(mid_x - CX);
-    float dy  = static_cast<float>(CY - IMG_SIZE / 4);
-    raw_error = std::atan2(dx, dy) * 180.0f / M_PI;
-} else {
-    raw_error = 0.0f;  // 장애물 없음 → 직진
-}
 
 // 스무딩: 이전값 90% + 현재값 10%
 float error = prev_error_ * 0.9f + raw_error * 0.1f;
