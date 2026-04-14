@@ -21,12 +21,8 @@
 #define KP          1
 // 기본 직진 속도
 #define BASE_SPEED  50
-// 좌측 바퀴 보정값
-#define LEFT_OFFSET  0
-// 우측 바퀴 보정값
-#define RIGHT_OFFSET 0
 // 최소 장애물 픽셀 수 (노이즈 제거)
-#define MIN_PIXELS  5
+#define MIN_PIXELS  20
 
 // Ctrl+C 종료 플래그
 bool g_running = true;
@@ -68,17 +64,18 @@ class LidarDrive : public rclcpp::Node
 public:
     LidarDrive() : Node("lidardrive"), prev_error_(0.0f)
     {
-        // /scan 토픽 구독
+        // /scan 토픽 구독 (SensorDataQoS: 센서 데이터용 QoS)
         sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
                    "scan", rclcpp::SensorDataQoS(),
                    std::bind(&LidarDrive::scanCb, this,
                              std::placeholders::_1));
 
         // /topic_dxlpub 토픽 퍼블리셔 생성
+        // geometry_msgs/Vector3: x=좌바퀴, y=우바퀴 (rpm)
         pub_ = this->create_publisher<geometry_msgs::msg::Vector3>(
                    "topic_dxlpub", 10);
 
-        // 결과 영상 저장용 VideoWriter 초기화
+        // 결과 영상 저장용 VideoWriter 초기화 (10fps, mp4v 코덱)
         int fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
         writer_.open("lidardrive_result.mp4", fourcc, 10.0,
                      cv::Size(IMG_SIZE, IMG_SIZE));
@@ -106,6 +103,7 @@ private:
         if (!g_running) return;
 
         // 총 측정 포인트 수 계산
+        // count = scan_time / time_increment
         int count = static_cast<int>(
             scan->scan_time / scan->time_increment);
 
@@ -113,7 +111,7 @@ private:
         cv::Mat img(IMG_SIZE, IMG_SIZE, CV_8UC3,
                     cv::Scalar(255, 255, 255));
 
-        // 중심 십자가 표시
+        // 중심 십자가 표시 (라이다 위치, 검정색)
         cv::drawMarker(img, cv::Point(CX, CY),
                        cv::Scalar(0, 0, 0),
                        cv::MARKER_CROSS, 10, 1);
@@ -140,6 +138,8 @@ private:
                 continue;
 
             // 극좌표 → 이미지 픽셀 좌표 변환
+            // px = CX + range * M2PIX * sin(angle)  ← 좌우 성분
+            // py = CY + range * M2PIX * cos(angle)  ← 상하 성분
             int px = static_cast<int>(
                 CX + range * M2PIX * std::sin(angle_rad));
             int py = static_cast<int>(
@@ -157,20 +157,20 @@ private:
 
         // ── 장애물 검출 ───────────────────────────────────
 
-        // 빨간색 픽셀 마스크 생성
+        // 빨간색 픽셀(장애물) 마스크 생성
         cv::Mat mask;
         cv::inRange(img,
                     cv::Scalar(0, 0, 200),
                     cv::Scalar(50, 50, 255),
                     mask);
 
-
-        cv::Mat front_mask = mask(cv::Rect(0, 0, IMG_SIZE, front_height));
+        // 전방 180도 영역 = 이미지 상단 절반 (y: 0 ~ CY)
+        cv::Mat front_mask = mask(cv::Rect(0, 0, IMG_SIZE, CY));
 
         // 좌측 영역 (x: 0 ~ CX)
-        cv::Mat left_mask  = front_mask(cv::Rect(0, 0, CX, front_height));
+        cv::Mat left_mask  = front_mask(cv::Rect(0, 0, CX, CY));
         // 우측 영역 (x: CX ~ IMG_SIZE)
-        cv::Mat right_mask = front_mask(cv::Rect(CX, 0, CX, front_height));
+        cv::Mat right_mask = front_mask(cv::Rect(CX, 0, CX, CY));
 
         // 좌측 최단거리 장애물 검출
         int left_min_dist    = INT_MAX;
@@ -178,7 +178,7 @@ private:
         int left_min_y       = -1;
         int left_pixel_count = 0;
 
-        for (int y = 0; y < front_height; y++) {
+        for (int y = 0; y < CY; y++) {
             for (int x = 0; x < left_mask.cols; x++) {
                 if (left_mask.at<uchar>(y, x) > 0) {
                     left_pixel_count++;
@@ -200,7 +200,7 @@ private:
         int right_min_y       = -1;
         int right_pixel_count = 0;
 
-        for (int y = 0; y < front_height; y++) {
+        for (int y = 0; y < CY; y++) {
             for (int x = 0; x < right_mask.cols; x++) {
                 if (right_mask.at<uchar>(y, x) > 0) {
                     right_pixel_count++;
@@ -217,7 +217,7 @@ private:
             }
         }
 
-        // 픽셀 수 적으면 노이즈로 판단 → 무시
+        // 픽셀 수 < MIN_PIXELS 이면 노이즈로 판단 → 무시
         if (left_pixel_count  < MIN_PIXELS) {
             left_min_x  = -1;
             left_min_y  = -1;
@@ -227,13 +227,31 @@ private:
             right_min_y = -1;
         }
 
-        // ── error 계산 (각도, degree) ─────────────────────
-        float raw_error = 0.0f;
+        // ── 한쪽만 장애물일 때 가상 최대거리 장애물 배치 ──
 
         bool left_found  = (left_min_x  != -1);
         bool right_found = (right_min_x != -1);
 
+        if (left_found && !right_found) {
+            // 우측 장애물 없음 → 우측 끝에 가상 장애물 배치
+            right_min_x = IMG_SIZE - 1;
+            right_min_y = 0;
+            right_found = true;
+        }
+        if (!left_found && right_found) {
+            // 좌측 장애물 없음 → 좌측 끝에 가상 장애물 배치
+            left_min_x = 0;
+            left_min_y = 0;
+            left_found = true;
+        }
+
+        // ── error 계산 (각도, degree) ─────────────────────
+        // 중앙=0도, 왼쪽=-90도, 오른쪽=+90도
+        float raw_error = 0.0f;
+
         // 좌우 장애물이 실제로 다른 벽인지 확인
+        // x 차이 > 100px  : 서로 다른 위치
+        // 거리 차이 < 3배 : 비슷한 거리여야 다른 벽
         bool both_valid = left_found && right_found &&
                           (right_min_x - left_min_x) > 100 &&
                           left_min_dist  < right_min_dist * 3 &&
@@ -245,15 +263,6 @@ private:
             float dx  = static_cast<float>(mid_x - CX);
             float dy  = static_cast<float>(CY - IMG_SIZE / 4);
             raw_error = std::atan2(dx, dy) * 180.0f / M_PI;
-
-        } else if (left_found) {
-            // 좌측만 장애물 → 이전값 유지
-            raw_error = prev_error_;
-
-        } else if (right_found) {
-            // 우측만 장애물 → 이전값 유지
-            raw_error = prev_error_;
-
         } else {
             // 장애물 없음 → 0도 직진
             raw_error = 0.0f;
@@ -266,12 +275,10 @@ private:
         // ── P제어 속도 계산 ───────────────────────────────
         // error > 0: 장애물 중앙 우측 → 우측으로 이동
         // error < 0: 장애물 중앙 좌측 → 좌측으로 이동
-        int left_vel  = BASE_SPEED + static_cast<int>(KP * error)
-                        + LEFT_OFFSET;
-        int right_vel = -(BASE_SPEED - static_cast<int>(KP * error)
-                        + RIGHT_OFFSET);
+        int left_vel  = BASE_SPEED + static_cast<int>(KP * error);
+        int right_vel = -(BASE_SPEED - static_cast<int>(KP * error));
 
-        // 속도 범위 제한 (-300 ~ 300)
+        // 속도 범위 제한 (-300 ~ 300 rpm)
         left_vel  = std::max(-300, std::min(300, left_vel));
         right_vel = std::max(-300, std::min(300, right_vel));
 
@@ -282,11 +289,6 @@ private:
         cv::line(result, cv::Point(0, CY),
                  cv::Point(IMG_SIZE, CY),
                  cv::Scalar(255, 0, 0), 1);
-
-        // 블라인드존 경계선 (회색 가로선)
-        cv::line(result, cv::Point(0, CY - BLIND_ZONE),
-                 cv::Point(IMG_SIZE, CY - BLIND_ZONE),
-                 cv::Scalar(150, 150, 150), 1);
 
         // 좌/우 경계선 (초록색 세로선)
         cv::line(result, cv::Point(CX, 0),
