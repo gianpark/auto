@@ -249,21 +249,6 @@ private:
         // 중앙=0도, 왼쪽=-90도, 오른쪽=+90도
         float raw_error = 0.0f;
 
-        // 좌우 장애물이 실제로 다른 벽인지 확인
-        // x 차이 > 100px  : 서로 다른 위치
-        // 거리 차이 < 3배 : 비슷한 거리여야 다른 벽
-        bool both_valid = left_found && right_found;
-
-        if (both_valid) {
-            // 양쪽 장애물 → 중앙점 방향 각도 계산
-            int mid_x = (left_min_x + right_min_x) / 2;
-            float dx  = static_cast<float>(mid_x - CX);
-            float dy  = static_cast<float>(CY - IMG_SIZE / 4);
-            raw_error = std::atan2(dx, dy) * 180.0f / M_PI;
-        } else {
-            // 장애물 없음 → 0도 직진
-            raw_error = 0.0f;
-        }
 
         // 스무딩 (이전값 90% + 현재값 10%)
         float error = prev_error_ * 0.7f + raw_error * 0.3f;
@@ -307,12 +292,6 @@ private:
         // 중앙점 (노란 원) - 화면 1/4 지점
         int mid_x = CX;
         int mid_y = IMG_SIZE / 4;
-
-        if (both_valid) {
-            mid_x = (left_min_x + right_min_x) / 2;
-            cv::circle(result, cv::Point(mid_x, mid_y),
-                       6, cv::Scalar(0, 255, 255), -1);
-        }
 
         // ── 나아가야 할 방향 화살표 ──────────────────────
         cv::Point arrow_start(CX, CY);
