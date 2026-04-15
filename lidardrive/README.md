@@ -87,6 +87,107 @@ graph LR
        ↓
 ⑩ /topic_dxlpub 발행  +  mp4 저장
 ```
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>lidardrive 알고리즘 블럭도</title>
+<style>
+  body { margin: 0; background: #f8fafc; font-family: sans-serif; }
+  svg { display: block; margin: auto; }
+</style>
+</head>
+<body>
+<svg width="680" viewBox="0 0 680 980" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- ① /scan 토픽 수신 -->
+  <rect x="240" y="30" width="200" height="44" rx="22" fill="#D3D1C7" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text x="340" y="52" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2C2C2A">/scan 토픽 수신</text>
+  <line x1="340" y1="74" x2="340" y2="102" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ② 스캔 영상 생성 -->
+  <rect x="190" y="104" width="300" height="56" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="340" y="126" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0C447C">스캔 영상 생성</text>
+  <text x="340" y="146" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">극좌표 → 픽셀 좌표  (500×500, 반경 1.5m)</text>
+  <line x1="340" y1="160" x2="340" y2="188" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ③ 장애물 마스크 -->
+  <rect x="190" y="190" width="300" height="56" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="340" y="212" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0C447C">장애물 마스크 생성</text>
+  <text x="340" y="232" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">BGR (0,0,200)~(50,50,255) 빨간 픽셀 추출</text>
+  <line x1="340" y1="246" x2="340" y2="274" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ④ 전방 분리 -->
+  <rect x="190" y="276" width="300" height="56" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="340" y="298" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0C447C">전방 180도 분리</text>
+  <text x="340" y="318" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">y: 0 ~ CY  /  좌(x&lt;CX) · 우(x≥CX) 영역 분리</text>
+  <line x1="340" y1="332" x2="340" y2="360" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ⑤ 최단거리 검출 -->
+  <rect x="190" y="362" width="300" height="56" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="340" y="384" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">좌/우 최단거리 장애물 검출</text>
+  <text x="340" y="404" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">dist = dx²+dy²  |  MIN_PIXELS ≥ 20</text>
+  <line x1="340" y1="418" x2="340" y2="446" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ⑥ 가상 장애물 다이아몬드 -->
+  <polygon points="340,448 450,496 340,544 230,496" fill="none" stroke="#888780" stroke-width="0.5"/>
+  <text x="340" y="491" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#444441">한쪽만</text>
+  <text x="340" y="506" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#444441">장애물?</text>
+
+  <!-- YES 분기 -->
+  <line x1="450" y1="496" x2="548" y2="496" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="495" y="488" text-anchor="middle" font-size="12" fill="#1D9E75">YES</text>
+  <rect x="490" y="510" width="160" height="56" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="570" y="532" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">가상 장애물 배치</text>
+  <text x="570" y="552" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">없는 쪽 끝 x=0 / x=499</text>
+  <path d="M570 566 L570 630 L450 630" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+
+  <!-- NO 분기 -->
+  <line x1="340" y1="544" x2="340" y2="598" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="352" y="572" font-size="12" fill="#888780">NO</text>
+
+  <!-- ⑦ error 계산 -->
+  <rect x="190" y="600" width="300" height="56" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="340" y="622" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">error 각도 계산</text>
+  <text x="340" y="642" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">atan2(mid_x-CX, CY-125) × 180/π</text>
+  <line x1="340" y1="656" x2="340" y2="684" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ⑧ 스무딩 -->
+  <rect x="190" y="686" width="300" height="56" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="340" y="708" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">스무딩</text>
+  <text x="340" y="728" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">error = prev × 0.9 + raw × 0.1</text>
+  <line x1="340" y1="742" x2="340" y2="770" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ⑨ P제어 -->
+  <rect x="190" y="772" width="300" height="56" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
+  <text x="340" y="794" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#3C3489">P제어 속도 계산</text>
+  <text x="340" y="814" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#534AB7">L = BASE+KP×err  /  R = -(BASE-KP×err)</text>
+  <line x1="340" y1="828" x2="340" y2="856" stroke="#534AB7" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ⑩ 발행 -->
+  <rect x="190" y="858" width="300" height="44" rx="22" fill="#D3D1C7" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text x="340" y="880" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2C2C2A">/topic_dxlpub 발행  +  mp4 저장</text>
+
+  <!-- 왼쪽 단계 레이블 -->
+  <text x="172" y="52"  text-anchor="end" font-size="12" fill="#888780">① 수신</text>
+  <text x="172" y="135" text-anchor="end" font-size="12" fill="#185FA5">② 영상</text>
+  <text x="172" y="223" text-anchor="end" font-size="12" fill="#185FA5">③ 마스크</text>
+  <text x="172" y="310" text-anchor="end" font-size="12" fill="#185FA5">④ 전방</text>
+  <text x="172" y="393" text-anchor="end" font-size="12" fill="#0F6E56">⑤ 검출</text>
+  <text x="172" y="496" text-anchor="end" font-size="12" fill="#888780">⑥ 판단</text>
+  <text x="172" y="631" text-anchor="end" font-size="12" fill="#0F6E56">⑦ error</text>
+  <text x="172" y="717" text-anchor="end" font-size="12" fill="#0F6E56">⑧ 평활</text>
+  <text x="172" y="800" text-anchor="end" font-size="12" fill="#534AB7">⑨ 제어</text>
+  <text x="172" y="880" text-anchor="end" font-size="12" fill="#888780">⑩ 출력</text>
+</svg>
+</body>
+</html>
+```
 
 ### 가상 장애물 배치 (핵심 로직)
 
