@@ -248,6 +248,17 @@ private:
         // ── error 계산 (각도, degree) ─────────────────────
         // 중앙=0도, 왼쪽=-90도, 오른쪽=+90도
         float raw_error = 0.0f;
+        bool both_valid = left_found && right_found;
+
+        if (both_valid) {
+            // 양쪽 장애물 → 중앙점 방향 각도 계산
+            int mid_x = (left_min_x + right_min_x) / 2;
+            float dx  = static_cast<float>(mid_x - CX);
+            float dy  = static_cast<float>(CY - IMG_SIZE / 4);
+            raw_error = std::atan2(dx, dy) * 180.0f / M_PI;
+        } else {
+            raw_error = 0.0f;
+        }
 
 
         // 스무딩 (이전값 90% + 현재값 10%)
